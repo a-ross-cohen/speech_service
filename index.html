@@ -1,0 +1,104 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Speech Parser Demo</title>
+  <script   src="https://code.jquery.com/jquery-3.1.1.min.js"   integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="   crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+  <style type="text/css" media="screen">
+   html {
+     height: 100%;
+   }
+   body {
+     height: 100%;
+   }
+   .vertical-center {
+     min-height: 100%;
+     min-height: 100vh;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+   }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="col-md-offset-3 col-md-6 text-center vertical-center">
+      <input type="button" name="start" value="start" id="start" class="btn">
+      <div id="results" class="h1"></div>
+    </div>
+  </div>
+  <script type="text/javascript">
+    var webSocket = null
+    var isOpen = false
+    var removeSTagRegex = /<s>(.*)<\/s>/
+  
+    $('#start').click(function(e) {
+      e.preventDefault()
+      var that = $(this)
+      that.prop('disabled', true)
+      navigator.getUserMedia({
+        audio: {
+          sampleRate: 16000
+        },
+        video: false
+      }, function() {
+        userMediaSuccess.apply(null, arguments)
+        that.hide()
+      }, function() {
+        userMediaError()
+        that.prop('disabled', false)
+      })
+    })
+    
+    function openWebSocket() {
+      webSocket = new WebSocket('ws://' + window.location.host + '/transcribe')
+      webSocket.onopen = function() {
+        isOpen = true
+        console.log('open', arguments);
+      }
+      webSocket.onmessage = function(message) {
+        console.log('message', arguments);
+        var parsed = removeSTagRegex.exec(message.data)
+        $('#results').html((parsed[1]) ? parsed[1] : '')
+      }
+      webSocket.onclose = function() {
+        isOpen = false
+        console.log('close', arguments);
+      }
+    }
+    
+    function convertFloat32ToInt16(buffer) {
+      l = buffer.length;
+      buf = new Int16Array(l);
+      while (l--) {
+        buf[l] = Math.min(1, buffer[l])*0x7FFF;
+      }
+      return buf.buffer;
+    }
+    
+    function onAudio(event) {
+      if (isOpen) {
+        webSocket.send(convertFloat32ToInt16(event.inputBuffer.getChannelData(0)))
+      }
+    }
+  
+    function userMediaSuccess(stream) {
+      var context = new AudioContext()
+      var source = context.createMediaStreamSource(stream)
+      var capture = context.createScriptProcessor(4096, 1, 1)
+      capture.onaudioprocess = onAudio  
+      source.connect(capture)
+      capture.connect(context.destination)
+      openWebSocket()
+    }
+    
+    function userMediaError() {
+      console.log('error getting user media');
+    }
+    
+  </script>
+</body>
+</html>

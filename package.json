@@ -1,0 +1,17 @@
+{
+  "name": "speech_service",
+  "version": "1.0.0",
+  "description": "speech service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "A. Ross Cohen",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.14.0",
+    "express-ws": "^2.0.0",
+    "wav": "^1.0.1"
+  }
+}
