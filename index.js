@@ -13,6 +13,7 @@ app.get('/', function(req, res) {
 app.ws('/transcribe', function(socket, req) {
   
   console.log('connection')
+  var connected = true
   var writer = new Wav.FileWriter('/tmp/testing.wav', {
     channels: 1,
     sampleRate: 44100,
@@ -22,34 +23,55 @@ app.ws('/transcribe', function(socket, req) {
   var transcriber = ChildProcess.spawn('java', ['-cp', __dirname + '/../speech_transcriber/build/libs/speech_transcriber.jar', 'com.arosscohen.speech_transcriber.SpeechTranscriber'])
   
   socket.on('message', function(data) {
-    writer.write(data)
-  })
-  writer.on('data', function(data) {
-    resampler.stdin.write(data)
-  })
-  resampler.stdout.on('data', function(data) {
-    transcriber.stdin.write(data)
-  })
-  transcriber.stdout.on('data', function(data) {
-    console.log('result', data.toString())
     try {
-      socket.send(data.toString())
+      writer.write(data)
     } catch (e) {
       console.log(e);
     }
   })
+  writer.on('data', function(data) {
+    if (connected) {
+      try {
+        resampler.stdin.write(data)
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  })
+  resampler.stdout.on('data', function(data) {
+    if (connected) {
+      try {
+        transcriber.stdin.write(data)
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  })
+  transcriber.stdout.on('data', function(data) {
+    console.log('result > ', data.toString())
+    if (connected) {
+      try {
+        socket.send(data.toString())
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  })
   
   socket.on('close', function() {
-    console.log('close')
+    connected = false
+    console.log('socket close')
     writer.end()
     transcriber.kill('SIGINT')
-    resampler.kill('SIGINT')
+    resampler.kill('SIGKILL')
   })
   
   socket.on('error', function() {
+    connected = false
+    console.log('socket error');
     writer.end()
     transcriber.kill('SIGINT')
-    resampler.kill('SIGINT')
+    resampler.kill('SIGKILL')
   })
   
   resampler.stderr.on('data', function(data) {
