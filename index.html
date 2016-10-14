@@ -74,7 +74,8 @@
     })
     
     function openWebSocket() {
-      webSocket = new WebSocket('ws://' + window.location.host + '/transcribe')
+      var protocol = (window.location.protocol.startsWith('https')) ? 'wss://' : 'ws://'
+      webSocket = new WebSocket(protocol + window.location.host + '/transcribe')
       webSocket.onopen = function() {
         isOpen = true
         console.log('open', arguments);
